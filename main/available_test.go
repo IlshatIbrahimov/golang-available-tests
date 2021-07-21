@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -23,19 +25,32 @@ func TestAvailable(t *testing.T) {
 	// tests
 	for _, url := range urls {
 		t.Run(url, func(t *testing.T) {
+			var currentFail = false
+
 			body, duration, err := getHttp(url)
 			if err != nil {
+				currentFail = true
 				hasFailedTests = true
 				t.Fail()
 				t.Log(err)
 			}
 			if !assertBodyHasFooter(body) {
+				currentFail = true
 				hasFailedTests = true
 				t.Fail()
 				t.Logf("Ответ не содержит footer! Ответ: %s", body)
 			}
 
+			var sendDataBody map[string]string
 			// отправка данных на бэк здесь!
+			if currentFail {
+				sendDataBody = map[string]string{"url": url, "status": "FAIL", "duration": strconv.FormatInt(int64(duration), 10)}
+			} else {
+				sendDataBody = map[string]string{"url": url, "status": "PASS", "duration": strconv.FormatInt(int64(duration), 10)}
+			}
+
+			sendDataJson, _ := json.Marshal(sendDataBody)
+			sendData, _ := http.NewRequest(http.MethodPost, "", sendDataJson)
 		})
 	}
 
