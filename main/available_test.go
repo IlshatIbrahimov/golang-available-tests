@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
@@ -10,6 +11,10 @@ import (
 	"testing"
 	"time"
 )
+
+var alertApiUrl = os.Getenv("ALERT_API_URL")
+var alertApiUsername = os.Getenv("ALERT_API_USERNAME")
+var alertApiPassword = os.Getenv("ALERT_API_PASSWORD")
 
 func TestAvailable(t *testing.T) {
 	var hasFailedTests = false
@@ -41,16 +46,22 @@ func TestAvailable(t *testing.T) {
 				t.Logf("Ответ не содержит footer! Ответ: %s", body)
 			}
 
-			var sendDataBody map[string]string
-			// отправка данных на бэк здесь!
-			if currentFail {
-				sendDataBody = map[string]string{"url": url, "status": "FAIL", "duration": strconv.FormatInt(int64(duration), 10)}
-			} else {
-				sendDataBody = map[string]string{"url": url, "status": "PASS", "duration": strconv.FormatInt(int64(duration), 10)}
+			// авторизация на бэке
+			alertApiToken, err := authApi()
+			if err != nil {
+				t.Fatalf("Authentication to api failed! Error: %s", err)
 			}
-
-			sendDataJson, _ := json.Marshal(sendDataBody)
-			sendData, _ := http.NewRequest(http.MethodPost, "", sendDataJson)
+			// отправка данных
+			var status string
+			if currentFail {
+				status = "FAIL"
+			} else {
+				status = "PASS"
+			}
+			err = createAlert(alertApiToken, url, status, int64(duration))
+			if err != nil {
+				t.Fatalf("Alert not created! Error: %s", err)
+			}
 		})
 	}
 
@@ -89,4 +100,37 @@ func getHttp(url string) (string, time.Duration, error) {
 
 func assertBodyHasFooter(body string) bool {
 	return strings.Contains(body, "footer")
+}
+
+func authApi() (string, error) {
+	// авторизация на бэке
+	authData := map[string]string{"username": alertApiUsername, "password": alertApiPassword}
+	authJson, _ := json.Marshal(authData)
+	authResp, _ := http.Post(alertApiUrl + "/auth/login", "application/json", bytes.NewBuffer(authJson))
+
+	defer authResp.Body.Close()
+	body, err := ioutil.ReadAll(authResp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return strings.Split(strings.Split(string(body), ",")[0], ":")[1], nil
+}
+
+func createAlert(apiToken, testUrl, testStatus string, duration int64) error {
+	sendDataBody := map[string]string{"url": testUrl, "status": testStatus, "duration": strconv.FormatInt(duration, 10)}
+	bodyJson, _ := json.Marshal(sendDataBody)
+
+	client := http.DefaultClient
+
+	req, _ := http.NewRequest(http.MethodPost, alertApiUrl, bytes.NewBuffer(bodyJson))
+	req.Header.Set("Authentication", "jwt" + apiToken)
+
+	_, err := client.Do(req)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
