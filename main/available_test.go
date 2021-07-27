@@ -16,7 +16,7 @@ import (
 var alertApiUrl = os.Getenv("ALERT_API_URL")
 var alertApiUsername = os.Getenv("ALERT_API_USERNAME")
 var alertApiPassword = os.Getenv("ALERT_API_PASSWORD")
-var urls = strings.Split(os.Getenv("AVAILABLE_TEST_URLS"), ",")
+var urls = strings.Split(os.Getenv("ACCESSIBILITY_TEST_URLS"), ",")
 
 func TestAvailable(t *testing.T) {
 	var hasFailedTests = false
@@ -140,10 +140,10 @@ func createAlert(apiToken, testUrl, testStatus string, duration int64) error {
 }
 
 func sendFatalEmail(messageText string) error{
-	from := os.Getenv("SMTP_EMAIL")
-	password := os.Getenv("SMTP_PASSWORD")
-	smtpHost := os.Getenv("SMTP_HOST")
-	smtpPort := os.Getenv("SMTP_PORT")
+	from := os.Getenv("ACCESSIBILITY_SMTP_EMAIL")
+	password := os.Getenv("ACCESSIBILITY_SMTP_PASSWORD")
+	smtpHost := os.Getenv("ACCESSIBILITY_SMTP_HOST")
+	smtpPort := os.Getenv("ACCESSIBILITY_SMTP_PORT")
 
 	to := strings.Split(os.Getenv("FATAL_EMAIL_RECIPIENTS"), ",")
 
