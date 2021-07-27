@@ -147,9 +147,7 @@ func sendFatalEmail(messageText string) error{
 	smtpHost := os.Getenv("SMTP_HOST")
 	smtpPort := os.Getenv("SMTP_PORT")
 
-	to := []string {
-		"ibragimovin@sovcombank.ru",
-	}
+	to := strings.Split(os.Getenv("FATAL_EMAIL_RECIPIENTS"), ",")
 
 	message := []byte("Subject: Ошибка в тестах доступности страниц!\r\n" + messageText)
 
