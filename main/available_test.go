@@ -24,7 +24,6 @@ func TestAvailable(t *testing.T) {
 	// setup
 	_, _, err := getHttp("https://google.com/")
 	if err != nil {
-
 		sendFatalEmail("SetUp failed: google.com недоступен! Ошибка:\n" + err.Error())
 		t.Fatalf("SetUp failed: google.com недоступен! Ошибка: %s", err)
 	}
@@ -75,6 +74,7 @@ func TestAvailable(t *testing.T) {
 	}
 }
 
+// get запрос по url
 func getHttp(url string) (string, time.Duration, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -102,10 +102,12 @@ func getHttp(url string) (string, time.Duration, error) {
 	return string(body), done, nil
 }
 
+// проверка наличия footer в html
 func assertBodyHasFooter(body string) bool {
 	return strings.Contains(body, "footer")
 }
 
+// авторизация в API
 func authApi() (string, error) {
 	// авторизация на бэке
 	authData := map[string]string{"username": alertApiUsername, "password": alertApiPassword}
@@ -121,6 +123,7 @@ func authApi() (string, error) {
 	return strings.Split(strings.Split(string(body), ",")[0], ":")[1], nil
 }
 
+// отправка алерта в API
 func createAlert(apiToken, testUrl, testStatus string, duration int64) error {
 	sendDataBody := map[string]string{"url": testUrl, "status": testStatus, "duration": strconv.FormatInt(duration, 10)}
 	bodyJson, _ := json.Marshal(sendDataBody)
@@ -128,7 +131,7 @@ func createAlert(apiToken, testUrl, testStatus string, duration int64) error {
 	client := http.DefaultClient
 
 	req, _ := http.NewRequest(http.MethodPost, alertApiUrl, bytes.NewBuffer(bodyJson))
-	req.Header.Set("Authentication", "jwt" + apiToken)
+	req.Header.Set("Authentication", "Bearer " + apiToken)
 
 	_, err := client.Do(req)
 
