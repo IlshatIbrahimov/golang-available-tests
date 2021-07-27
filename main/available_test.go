@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"net/smtp"
 	"os"
 	"strconv"
 	"strings"
@@ -17,12 +18,16 @@ var alertApiUsername = os.Getenv("ALERT_API_USERNAME")
 var alertApiPassword = os.Getenv("ALERT_API_PASSWORD")
 var urls = strings.Split(os.Getenv("AVAILABLE_TEST_URLS"), ",")
 
+//TODO отправлять письмо на fatalf
+
 func TestAvailable(t *testing.T) {
 	var hasFailedTests = false
 
 	// setup
 	_, _, err := getHttp("https://google.com/")
 	if err != nil {
+
+		sendFatalEmail("SetUp failed: google.com недоступен! Ошибка:\n" + err.Error())
 		t.Fatalf("SetUp failed: google.com недоступен! Ошибка: %s", err)
 	}
 
@@ -48,6 +53,7 @@ func TestAvailable(t *testing.T) {
 			// авторизация на бэке
 			alertApiToken, err := authApi()
 			if err != nil {
+				sendFatalEmail("Не удалось авторизоваться в API! Ошибка:\n" + err.Error())
 				t.Fatalf("Authentication to api failed! Error: %s", err)
 			}
 			// отправка данных
@@ -59,6 +65,7 @@ func TestAvailable(t *testing.T) {
 			}
 			err = createAlert(alertApiToken, url, status, int64(duration))
 			if err != nil {
+				sendFatalEmail("Alert не был создан! Ошибка:\n" + err.Error())
 				t.Fatalf("Alert not created! Error: %s", err)
 			}
 		})
@@ -131,5 +138,26 @@ func createAlert(apiToken, testUrl, testStatus string, duration int64) error {
 		return err
 	}
 
+	return nil
+}
+
+func sendFatalEmail(messageText string) error{
+	from := os.Getenv("SMTP_EMAIL")
+	password := os.Getenv("SMTP_PASSWORD")
+	smtpHost := os.Getenv("SMTP_HOST")
+	smtpPort := os.Getenv("SMTP_PORT")
+
+	to := []string {
+		"ibragimovin@sovcombank.ru",
+	}
+
+	message := []byte("Subject: Ошибка в тестах доступности страниц!\r\n" + messageText)
+
+	auth := smtp.PlainAuth("", from, password, smtpHost)
+
+	err := smtp.SendMail(smtpHost + ":" + smtpPort, auth, from, to, message)
+	if err != nil {
+		return err
+	}
 	return nil
 }
