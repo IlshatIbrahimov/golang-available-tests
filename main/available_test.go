@@ -18,8 +18,6 @@ var alertApiUsername = os.Getenv("ALERT_API_USERNAME")
 var alertApiPassword = os.Getenv("ALERT_API_PASSWORD")
 var urls = strings.Split(os.Getenv("AVAILABLE_TEST_URLS"), ",")
 
-//TODO отправлять письмо на fatalf
-
 func TestAvailable(t *testing.T) {
 	var hasFailedTests = false
 
