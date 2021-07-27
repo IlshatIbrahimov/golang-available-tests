@@ -15,11 +15,10 @@ import (
 var alertApiUrl = os.Getenv("ALERT_API_URL")
 var alertApiUsername = os.Getenv("ALERT_API_USERNAME")
 var alertApiPassword = os.Getenv("ALERT_API_PASSWORD")
+var urls = strings.Split(os.Getenv("AVAILABLE_TEST_URLS"), ",")
 
 func TestAvailable(t *testing.T) {
 	var hasFailedTests = false
-	var envUrls = os.Getenv("AVAILABLE_TEST_URLS")
-	var urls = strings.Split(envUrls, ",")
 
 	// setup
 	_, _, err := getHttp("https://google.com/")
