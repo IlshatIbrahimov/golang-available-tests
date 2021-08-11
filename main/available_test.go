@@ -14,6 +14,11 @@ import (
 	"time"
 )
 
+type Tokens struct {
+	AccessToken string
+	RefreshToken string
+}
+
 var alertApiUrl = os.Getenv("ALERT_API_URL")
 var alertApiUsername = os.Getenv("ALERT_API_USERNAME")
 var alertApiPassword = os.Getenv("ALERT_API_PASSWORD")
@@ -120,6 +125,7 @@ func authApi() (string, error) {
 	authData := map[string]string{"username": alertApiUsername, "password": alertApiPassword}
 	authJson, _ := json.Marshal(authData)
 	authReq, _ := http.NewRequest(http.MethodPost, alertApiUrl + "/auth/login", bytes.NewBuffer(authJson))
+	authReq.Header.Set("Content-Type", "application/json")
 
 	authResp, err := client.Do(authReq)
 	if err != nil {
@@ -135,7 +141,10 @@ func authApi() (string, error) {
 		return "", err
 	}
 
-	return string(body), nil
+	var tokensObject Tokens
+	json.Unmarshal([]byte(string(body)), &tokensObject)
+
+	return tokensObject.AccessToken, nil
 }
 
 // отправка алерта в API
@@ -150,7 +159,8 @@ func createAlert(apiToken, testUrl, testStatus string, duration int64) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authentication", "Bearer " + apiToken)
+	req.Header.Set("Authorization", "Bearer " + apiToken)
+	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
 	if resp.StatusCode != 201 {
