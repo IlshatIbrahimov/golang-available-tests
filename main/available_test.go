@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"net/smtp"
@@ -87,6 +88,10 @@ func getHttp(url string) (string, time.Duration, error) {
 
 	start := time.Now()
 	resp, err := client.Do(req)
+
+	if resp.StatusCode != 200 {
+		return "", 0, errors.New("Status code is not 200. Status: " + resp.Status)
+	}
 	done := time.Since(start)
 
 	if err != nil {
