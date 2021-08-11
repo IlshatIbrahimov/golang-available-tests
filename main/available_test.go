@@ -12,7 +12,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"errors"
 )
 
 var alertApiUrl = os.Getenv("ALERT_API_URL")
@@ -21,43 +20,43 @@ var alertApiPassword = os.Getenv("ALERT_API_PASSWORD")
 var urls = strings.Split(os.Getenv("ACCESSIBILITY_TEST_URLS"), ";")
 
 func TestAvailable(t *testing.T) {
-	var hasFailedTests = false
-
-	// setup
+	// setup: check google.com
 	_, _, err := getHttp("https://google.com/")
 	if err != nil {
 		sendFatalEmail("SetUp failed: google.com недоступен! Ошибка:\n" + err.Error())
-		t.Fatalf("SetUp failed: google.com недоступен! Ошибка: %s", err)
+		t.Fatalf("SetUp failed: google.com unavailable! Ошибка:\n" + err.Error())
 	}
 
 	// tests
 	for _, url := range urls {
 		t.Run(url, func(t *testing.T) {
-			var currentFail = false
+			var currentTestFailed = false
 
+			// get запрос
 			body, duration, err := getHttp(url)
 			if err != nil {
-				currentFail = true
-				hasFailedTests = true
+				currentTestFailed = true
 				t.Fail()
 				t.Log(err)
 			}
+
+			// проверка наличия title
 			if !assertBodyHasTitle(body) {
-				currentFail = true
-				hasFailedTests = true
+				currentTestFailed = true
 				t.Fail()
-				t.Logf("Ответ не содержит GTM или GTM неверный! Ответ: %s", body)
+				t.Log("Ответ не содержит title! Ответ:\n" + body)
 			}
 
+			// отправка алертов
 			// авторизация на бэке
 			alertApiToken, err := authApi()
 			if err != nil {
 				sendFatalEmail("Не удалось авторизоваться в API! Ошибка:\n" + err.Error())
-				t.Fatalf("Authentication to api failed! Error: %s", err)
+				t.Fatal("Authentication to API failed! Error:\n" + err.Error())
 			}
-			// отправка данных
+			// создание алерта
 			var status string
-			if currentFail {
+			if currentTestFailed {
 				status = "FAIL"
 			} else {
 				status = "PASS"
@@ -65,19 +64,18 @@ func TestAvailable(t *testing.T) {
 			err = createAlert(alertApiToken, url, status, int64(duration))
 			if err != nil {
 				sendFatalEmail("Alert не был создан! Ошибка:\n" + err.Error())
-				t.Fatalf("Alert not created! Error: %s", err)
+				t.Fatal("Alert not created! Error:\n" + err.Error())
 			}
 		})
-	}
-
-	// teardown
-	if hasFailedTests {
-
 	}
 }
 
 // get запрос по url
 func getHttp(url string) (string, time.Duration, error) {
+	// клиент без прокси
+	var defaultTransport http.RoundTripper = &http.Transport{Proxy: nil}
+	client := &http.Client{Transport: defaultTransport}
+
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return "", 0, err
@@ -85,52 +83,50 @@ func getHttp(url string) (string, time.Duration, error) {
 
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9")
 
-	var defaultTransport http.RoundTripper = &http.Transport{Proxy: nil}
-	client := &http.Client{Transport: defaultTransport}
-
-
+	// время отправки запроса
 	start := time.Now()
+
 	resp, err := client.Do(req)
-
-	if resp.StatusCode != 200 {
-		return "", 0, errors.New("Status code is not 200. Status: " + resp.Status)
-	}
-	done := time.Since(start)
-
 	if err != nil {
 		return "", 0, err
 	}
-
 	if resp.StatusCode != 200 {
-		return "", 0, errors.New("Status code is not 200. Status: " + resp.Status)
+		return "", 0, errors.New("Status code is not 200! Status: " + resp.Status)
 	}
+
+	// время выполнения запроса
+	done := time.Since(start)
 
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", 0, err
+		return "", done, err
 	}
 
 	return string(body), done, nil
 }
 
+// проверка наличия title в body
 func assertBodyHasTitle(body string) bool {
 	return strings.Contains(body, "title")
 }
 
 // авторизация в API
 func authApi() (string, error) {
+	var defaultTransport http.RoundTripper = &http.Transport{Proxy: nil}
+	client := &http.Client{Transport: defaultTransport}
+
 	// авторизация на бэке
 	authData := map[string]string{"username": alertApiUsername, "password": alertApiPassword}
 	authJson, _ := json.Marshal(authData)
 	authReq, _ := http.NewRequest(http.MethodPost, alertApiUrl + "/auth/login", bytes.NewBuffer(authJson))
 
-	var defaultTransport http.RoundTripper = &http.Transport{Proxy: nil}
-	client := &http.Client{Transport: defaultTransport}
-
 	authResp, err := client.Do(authReq)
 	if err != nil {
 		return "", err
+	}
+	if authResp.StatusCode != 200 {
+		return "", errors.New("Not authenticated! Status: " + authResp.Status)
 	}
 
 	defer authResp.Body.Close()
@@ -144,17 +140,22 @@ func authApi() (string, error) {
 
 // отправка алерта в API
 func createAlert(apiToken, testUrl, testStatus string, duration int64) error {
-	sendDataBody := map[string]string{"url": testUrl, "status": testStatus, "duration": strconv.FormatInt(duration, 10), "stand": os.Getenv("HOST")}
-	bodyJson, _ := json.Marshal(sendDataBody)
-
 	var defaultTransport http.RoundTripper = &http.Transport{Proxy: nil}
 	client := &http.Client{Transport: defaultTransport}
 
-	req, _ := http.NewRequest(http.MethodPost, alertApiUrl, bytes.NewBuffer(bodyJson))
+	sendDataBody := map[string]string{"url": testUrl, "status": testStatus, "duration": strconv.FormatInt(duration, 10), "stand": os.Getenv("HOST")}
+	bodyJson, _ := json.Marshal(sendDataBody)
+
+	req, err := http.NewRequest(http.MethodPost, alertApiUrl, bytes.NewBuffer(bodyJson))
+	if err != nil {
+		return err
+	}
 	req.Header.Set("Authentication", "Bearer " + apiToken)
 
-	_, err := client.Do(req)
-
+	resp, err := client.Do(req)
+	if resp.StatusCode != 201 {
+		return errors.New("Alert not created! Status: " + resp.Status)
+	}
 	if err != nil {
 		return err
 	}
