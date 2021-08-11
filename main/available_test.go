@@ -12,12 +12,13 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"errors"
 )
 
 var alertApiUrl = os.Getenv("ALERT_API_URL")
 var alertApiUsername = os.Getenv("ALERT_API_USERNAME")
 var alertApiPassword = os.Getenv("ALERT_API_PASSWORD")
-var urls = strings.Split(os.Getenv("ACCESSIBILITY_TEST_URLS"), ",")
+var urls = strings.Split(os.Getenv("ACCESSIBILITY_TEST_URLS"), ";")
 
 func TestAvailable(t *testing.T) {
 	var hasFailedTests = false
@@ -41,11 +42,11 @@ func TestAvailable(t *testing.T) {
 				t.Fail()
 				t.Log(err)
 			}
-			if !assertBodyHasFooter(body) {
+			if !assertBodyHasTitle(body) {
 				currentFail = true
 				hasFailedTests = true
 				t.Fail()
-				t.Logf("Ответ не содержит footer! Ответ: %s", body)
+				t.Logf("Ответ не содержит GTM или GTM неверный! Ответ: %s", body)
 			}
 
 			// авторизация на бэке
@@ -84,7 +85,9 @@ func getHttp(url string) (string, time.Duration, error) {
 
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9")
 
-	client := http.DefaultClient
+	var defaultTransport http.RoundTripper = &http.Transport{Proxy: nil}
+	client := &http.Client{Transport: defaultTransport}
+
 
 	start := time.Now()
 	resp, err := client.Do(req)
@@ -98,6 +101,10 @@ func getHttp(url string) (string, time.Duration, error) {
 		return "", 0, err
 	}
 
+	if resp.StatusCode != 200 {
+		return "", 0, errors.New("Status code is not 200. Status: " + resp.Status)
+	}
+
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -107,9 +114,8 @@ func getHttp(url string) (string, time.Duration, error) {
 	return string(body), done, nil
 }
 
-// проверка наличия footer в html
-func assertBodyHasFooter(body string) bool {
-	return strings.Contains(body, "footer")
+func assertBodyHasTitle(body string) bool {
+	return strings.Contains(body, "title")
 }
 
 // авторизация в API
@@ -117,7 +123,15 @@ func authApi() (string, error) {
 	// авторизация на бэке
 	authData := map[string]string{"username": alertApiUsername, "password": alertApiPassword}
 	authJson, _ := json.Marshal(authData)
-	authResp, _ := http.Post(alertApiUrl + "/auth/login", "application/json", bytes.NewBuffer(authJson))
+	authReq, _ := http.NewRequest(http.MethodPost, alertApiUrl + "/auth/login", bytes.NewBuffer(authJson))
+
+	var defaultTransport http.RoundTripper = &http.Transport{Proxy: nil}
+	client := &http.Client{Transport: defaultTransport}
+
+	authResp, err := client.Do(authReq)
+	if err != nil {
+		return "", err
+	}
 
 	defer authResp.Body.Close()
 	body, err := ioutil.ReadAll(authResp.Body)
@@ -125,15 +139,16 @@ func authApi() (string, error) {
 		return "", err
 	}
 
-	return strings.Split(strings.Split(string(body), ",")[0], ":")[1], nil
+	return string(body), nil
 }
 
 // отправка алерта в API
 func createAlert(apiToken, testUrl, testStatus string, duration int64) error {
-	sendDataBody := map[string]string{"url": testUrl, "status": testStatus, "duration": strconv.FormatInt(duration, 10)}
+	sendDataBody := map[string]string{"url": testUrl, "status": testStatus, "duration": strconv.FormatInt(duration, 10), "stand": os.Getenv("HOST")}
 	bodyJson, _ := json.Marshal(sendDataBody)
 
-	client := http.DefaultClient
+	var defaultTransport http.RoundTripper = &http.Transport{Proxy: nil}
+	client := &http.Client{Transport: defaultTransport}
 
 	req, _ := http.NewRequest(http.MethodPost, alertApiUrl, bytes.NewBuffer(bodyJson))
 	req.Header.Set("Authentication", "Bearer " + apiToken)
@@ -147,6 +162,7 @@ func createAlert(apiToken, testUrl, testStatus string, duration int64) error {
 	return nil
 }
 
+// отправка алерта на почту в случае фатальных ошибок
 func sendFatalEmail(messageText string) error{
 	from := os.Getenv("ACCESSIBILITY_SMTP_EMAIL")
 	password := os.Getenv("ACCESSIBILITY_SMTP_PASSWORD")
