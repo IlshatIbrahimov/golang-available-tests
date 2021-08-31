@@ -35,19 +35,15 @@ func TestAvailable(t *testing.T) {
 	// tests
 	for _, url := range urls {
 		t.Run(url, func(t *testing.T) {
-			var currentTestFailed = false
-
 			// get запрос
-			body, duration, err := getHttp(url)
-			if err != nil {
-				currentTestFailed = true
+			body, duration, testError := getHttp(url)
+			if testError != nil {
 				t.Fail()
-				t.Log(err)
+				t.Log(testError)
 			}
 
 			// проверка наличия title
 			if !assertBodyHasTitle(body) {
-				currentTestFailed = true
 				t.Fail()
 				t.Log("Ответ не содержит title! Ответ:\n" + body)
 			}
@@ -61,12 +57,13 @@ func TestAvailable(t *testing.T) {
 			}
 			// создание алерта
 			var status string
-			if currentTestFailed {
+			if testError != nil {
 				status = "FAIL"
 			} else {
 				status = "PASS"
+				testError = errors.New("")
 			}
-			err = createAlert(alertApiToken, url, status, int64(duration))
+			err = createAlert(alertApiToken, url, status, testError, int64(duration))
 			if err != nil {
 				sendFatalEmail("Alert не был создан! Ошибка:\n" + err.Error())
 				t.Fatal("Alert not created! Error:\n" + err.Error())
@@ -148,11 +145,11 @@ func authApi() (string, error) {
 }
 
 // отправка алерта в API
-func createAlert(apiToken, testUrl, testStatus string, duration int64) error {
+func createAlert(apiToken, testUrl, testStatus string, testError error, duration int64) error {
 	var defaultTransport http.RoundTripper = &http.Transport{Proxy: nil}
 	client := &http.Client{Transport: defaultTransport}
 
-	sendDataBody := map[string]string{"url": testUrl, "status": testStatus, "duration": strconv.FormatInt(duration, 10), "stand": os.Getenv("HOST")}
+	sendDataBody := map[string]string{"url": testUrl, "status": testStatus, "duration": strconv.FormatInt(duration, 10), "stand": os.Getenv("HOST"), "error": testError.Error()}
 	bodyJson, _ := json.Marshal(sendDataBody)
 
 	req, err := http.NewRequest(http.MethodPost, alertApiUrl, bytes.NewBuffer(bodyJson))
