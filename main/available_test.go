@@ -66,7 +66,7 @@ func TestAvailable(t *testing.T) {
 			// авторизация на бэке
 			alertApiToken, err := authApi()
 			if err != nil {
-				log.Println("Not authorized" + alertApiUrl + " " + alertApiUsername)
+				log.Println("Not authorized" + alertApiUrl + " " + alertApiUsername + " " + alertApiPassword + " " + err.Error())
 				sendFatalEmail("Не удалось авторизоваться в API! Ошибка:\n" + err.Error())
 				t.Fatal("Authentication to API failed! Error:\n" + err.Error())
 			}
