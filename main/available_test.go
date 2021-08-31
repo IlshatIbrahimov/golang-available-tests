@@ -22,7 +22,9 @@ type Tokens struct {
 var alertApiUrl = os.Getenv("ALERT_API_URL")
 var alertApiUsername = os.Getenv("ALERT_API_USERNAME")
 var alertApiPassword = os.Getenv("ALERT_API_PASSWORD")
-var urls = strings.Split(os.Getenv("ACCESSIBILITY_TEST_URLS"), ";")
+//var urls = strings.Split(os.Getenv("ACCESSIBILITY_TEST_URLS"), ";")
+var rawUrls,_ = ioutil.ReadFile("urls.txt")
+var urls = strings.Split(string(rawUrls), ";")
 
 func TestAvailable(t *testing.T) {
 	// setup: check google.com
