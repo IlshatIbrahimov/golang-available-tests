@@ -48,6 +48,7 @@ func TestAvailable(t *testing.T) {
 	// tests
 	for _, url := range urls {
 		t.Run(url, func(t *testing.T) {
+			t.Log("test running")
 			// get запрос
 			body, duration, testError := getHttp(url)
 			if testError != nil {
@@ -78,11 +79,13 @@ func TestAvailable(t *testing.T) {
 			}
 			err = createAlert(alertApiToken, url, status, testError, int64(duration))
 			if err != nil {
+				log.Println("Alert not created")
 				sendFatalEmail("Alert не был создан! Ошибка:\n" + err.Error())
 				t.Fatal("Alert not created! Error:\n" + err.Error())
 			}
 		})
 	}
+	log.Println("Test run done")
 }
 
 // get запрос по url
