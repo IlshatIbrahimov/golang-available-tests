@@ -28,16 +28,6 @@ var rawUrls,_ = ioutil.ReadFile("urls.txt")
 var urls = strings.Split(string(rawUrls), ";")
 
 func TestAvailable(t *testing.T) {
-	f, logErr := os.OpenFile("testlogfile", os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
-	if logErr != nil {
-		log.Fatalf("error opening file")
-	}
-	defer f.Close()
-
-	log.SetOutput(f)
-	log.Println("this is a test log entry")
-
-	
 	// setup: check google.com
 	_, _, err := getHttp("https://google.com/")
 	if err != nil {
@@ -48,7 +38,6 @@ func TestAvailable(t *testing.T) {
 	// tests
 	for _, url := range urls {
 		t.Run(url, func(t *testing.T) {
-			log.Println("test running")
 			// get запрос
 			body, duration, testError := getHttp(url)
 			if testError != nil {
@@ -66,7 +55,6 @@ func TestAvailable(t *testing.T) {
 			// авторизация на бэке
 			alertApiToken, err := authApi()
 			if err != nil {
-				log.Println("Not authorized" + alertApiUrl + " " + alertApiUsername + " " + alertApiPassword + " " + err.Error())
 				sendFatalEmail("Не удалось авторизоваться в API! Ошибка:\n" + err.Error())
 				t.Fatal("Authentication to API failed! Error:\n" + err.Error())
 			}
@@ -80,13 +68,11 @@ func TestAvailable(t *testing.T) {
 			}
 			err = createAlert(alertApiToken, url, status, testError, int64(duration))
 			if err != nil {
-				log.Println("Alert not created")
 				sendFatalEmail("Alert не был создан! Ошибка:\n" + err.Error())
 				t.Fatal("Alert not created! Error:\n" + err.Error())
 			}
 		})
 	}
-	log.Println("Test run done")
 }
 
 // get запрос по url
