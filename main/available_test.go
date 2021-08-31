@@ -12,7 +12,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"log"
 )
 
 type Tokens struct {
@@ -28,15 +27,6 @@ var rawUrls,_ = ioutil.ReadFile("urls.txt")
 var urls = strings.Split(string(rawUrls), ";")
 
 func TestAvailable(t *testing.T) {
-	f, logErr := os.OpenFile("testlogfile", os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
-	if logErr != nil {
-		log.Fatalf("error opening file")
-	}
-	defer f.Close()
-
-	log.SetOutput(f)
-	log.Println("this is a test log entry")
-	
 	// setup: check google.com
 	_, _, err := getHttp("https://google.com/")
 	if err != nil {
