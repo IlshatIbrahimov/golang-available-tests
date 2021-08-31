@@ -48,7 +48,7 @@ func TestAvailable(t *testing.T) {
 	// tests
 	for _, url := range urls {
 		t.Run(url, func(t *testing.T) {
-			t.Log("test running")
+			log.Println("test running")
 			// get запрос
 			body, duration, testError := getHttp(url)
 			if testError != nil {
