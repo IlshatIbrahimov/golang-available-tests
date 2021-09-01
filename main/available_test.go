@@ -22,7 +22,6 @@ type Tokens struct {
 var alertApiUrl = os.Getenv("ALERT_API_URL")
 var alertApiUsername = os.Getenv("ALERT_API_USERNAME")
 var alertApiPassword = os.Getenv("ALERT_API_PASSWORD")
-//var urls = strings.Split(os.Getenv("ACCESSIBILITY_TEST_URLS"), ";")
 var rawUrls,_ = ioutil.ReadFile("urls.txt")
 var urls = strings.Split(string(rawUrls), ";")
 
@@ -181,7 +180,7 @@ func sendFatalEmail(messageText string) error{
 
 	to := strings.Split(os.Getenv("FATAL_EMAIL_RECIPIENTS"), ",")
 
-	message := []byte("Subject: Ошибка в тестах доступности страниц!\r\n" + messageText)
+	message := []byte("Subject: Ошибка в тестах доступности страниц! " + os.Getenv("HOST") + "\r\n" + messageText)
 
 	auth := smtp.PlainAuth("", from, password, smtpHost)
 
