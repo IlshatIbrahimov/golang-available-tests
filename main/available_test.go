@@ -19,11 +19,15 @@ type Tokens struct {
 	RefreshToken string
 }
 
+type ApiUrl struct {
+	Url string
+}
+
 var alertApiUrl = os.Getenv("ALERT_API_URL")
 var alertApiUsername = os.Getenv("ALERT_API_USERNAME")
 var alertApiPassword = os.Getenv("ALERT_API_PASSWORD")
 var rawUrls,_ = ioutil.ReadFile("urls.txt")
-var urls = strings.Split(string(rawUrls), ";")
+//var urls = strings.Split(string(rawUrls), ";")
 
 func TestAvailable(t *testing.T) {
 	// setup: check google.com
@@ -33,11 +37,23 @@ func TestAvailable(t *testing.T) {
 		t.Fatalf("SetUp failed: google.com unavailable! Ошибка:\n" + err.Error())
 	}
 
+	// setup: get urls
+	alertApiToken, err := authApi()
+	if err != nil {
+		sendFatalEmail("Не удалось авторизоваться в API! Ошибка:\n" + err.Error())
+		t.Fatal("Authentication to API failed! Error:\n" + err.Error())
+	}
+	urls, err := getUrlsFromApi(alertApiToken)
+	if err != nil {
+		sendFatalEmail("Не удалось получить адреса из API! Ошибка:\n" + err.Error())
+		t.Fatal("GET /v1/alerts/url failed! Error:\n" + err.Error())
+	}
+
 	// tests
 	for _, url := range urls {
-		t.Run(url, func(t *testing.T) {
+		t.Run(url.Url, func(t *testing.T) {
 			// get запрос
-			body, duration, testError := getHttp(url)
+			body, duration, testError := getHttp(url.Url)
 			if testError != nil {
 				t.Fail()
 				t.Log(testError)
@@ -64,7 +80,7 @@ func TestAvailable(t *testing.T) {
 				status = "PASS"
 				testError = errors.New("")
 			}
-			err = createAlert(alertApiToken, url, status, testError, int64(duration))
+			err = createAlert(alertApiToken, url.Url, status, testError, int64(duration))
 			if err != nil {
 				sendFatalEmail("Alert не был создан! Ошибка:\n" + err.Error())
 				t.Fatal("Alert not created! Error:\n" + err.Error())
@@ -189,4 +205,34 @@ func sendFatalEmail(messageText string) error{
 		return err
 	}
 	return nil
+}
+
+func getUrlsFromApi(apiToken string) ([]ApiUrl, error) {
+	// клиент без прокси
+	var defaultTransport http.RoundTripper = &http.Transport{Proxy: nil}
+	client := &http.Client{Transport: defaultTransport}
+
+	req, err := http.NewRequest(http.MethodGet, alertApiUrl, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", "Bearer " + apiToken)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	bytesBody := []byte(body)
+	apiUrls := make([]ApiUrl, 0)
+	json.Unmarshal(bytesBody, &apiUrls)
+
+	return apiUrls, nil
 }
