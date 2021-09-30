@@ -15,7 +15,7 @@ import (
 )
 
 type Tokens struct {
-	AccessToken string
+	AccessToken  string
 	RefreshToken string
 }
 
@@ -26,8 +26,6 @@ type ApiUrl struct {
 var alertApiUrl = os.Getenv("ALERT_API_URL")
 var alertApiUsername = os.Getenv("ALERT_API_USERNAME")
 var alertApiPassword = os.Getenv("ALERT_API_PASSWORD")
-var rawUrls,_ = ioutil.ReadFile("urls.txt")
-//var urls = strings.Split(string(rawUrls), ";")
 
 func TestAvailable(t *testing.T) {
 	// setup: check google.com
@@ -138,7 +136,7 @@ func authApi() (string, error) {
 	// авторизация на бэке
 	authData := map[string]string{"username": alertApiUsername, "password": alertApiPassword}
 	authJson, _ := json.Marshal(authData)
-	authReq, _ := http.NewRequest(http.MethodPost, alertApiUrl + "/auth/login", bytes.NewBuffer(authJson))
+	authReq, _ := http.NewRequest(http.MethodPost, alertApiUrl+"/auth/login", bytes.NewBuffer(authJson))
 	authReq.Header.Set("Content-Type", "application/json")
 
 	authResp, err := client.Do(authReq)
@@ -173,7 +171,7 @@ func createAlert(apiToken, testUrl, testStatus string, testError error, duration
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", "Bearer " + apiToken)
+	req.Header.Set("Authorization", "Bearer "+apiToken)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
@@ -188,7 +186,7 @@ func createAlert(apiToken, testUrl, testStatus string, testError error, duration
 }
 
 // отправка алерта на почту в случае фатальных ошибок
-func sendFatalEmail(messageText string) error{
+func sendFatalEmail(messageText string) error {
 	from := os.Getenv("ACCESSIBILITY_SMTP_EMAIL")
 	password := os.Getenv("ACCESSIBILITY_SMTP_PASSWORD")
 	smtpHost := os.Getenv("ACCESSIBILITY_SMTP_HOST")
@@ -200,7 +198,7 @@ func sendFatalEmail(messageText string) error{
 
 	auth := smtp.PlainAuth("", from, password, smtpHost)
 
-	err := smtp.SendMail(smtpHost + ":" + smtpPort, auth, from, to, message)
+	err := smtp.SendMail(smtpHost+":"+smtpPort, auth, from, to, message)
 	if err != nil {
 		return err
 	}
@@ -212,12 +210,12 @@ func getUrlsFromApi(apiToken string) ([]ApiUrl, error) {
 	var defaultTransport http.RoundTripper = &http.Transport{Proxy: nil}
 	client := &http.Client{Transport: defaultTransport}
 
-	req, err := http.NewRequest(http.MethodGet, alertApiUrl, nil)
+	req, err := http.NewRequest(http.MethodGet, alertApiUrl+"/url", nil)
 	if err != nil {
 		return nil, err
 	}
 
-	req.Header.Set("Authorization", "Bearer " + apiToken)
+	req.Header.Set("Authorization", "Bearer "+apiToken)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -230,9 +228,9 @@ func getUrlsFromApi(apiToken string) ([]ApiUrl, error) {
 		return nil, err
 	}
 
-	bytesBody := []byte(body)
+	//bytesBody := []byte(body)
 	apiUrls := make([]ApiUrl, 0)
-	json.Unmarshal(bytesBody, &apiUrls)
+	json.Unmarshal(body, &apiUrls)
 
 	return apiUrls, nil
 }
