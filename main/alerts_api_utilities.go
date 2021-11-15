@@ -67,6 +67,28 @@ func CreateAlert(apiToken, testUrl, testStatus string, testError error, duration
 	return nil
 }
 
+func CreateAlertWithBody(apiToken string, body []byte) error {
+	var defaultTransport http.RoundTripper = &http.Transport{Proxy: nil}
+	client := &http.Client{Transport: defaultTransport}
+
+	req, err := http.NewRequest(http.MethodPost, AlertApiUrl, bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+apiToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if resp.StatusCode != 201 {
+		return errors.New("Alert not created! Status: " + resp.Status)
+	}
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // получение списка url'ов из api
 func GetUrlsFromApi(apiToken string) ([]ApiUrl, error) {
 	// клиент без прокси
